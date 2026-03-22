@@ -1,0 +1,75 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options: [dev, prod]
+
+jobs:
+  deploy-dev:
+    name: Deploy to Dev
+    # Runs on pushes to the dev branch, or manual dispatch targeting dev
+    if: github.ref == 'refs/heads/dev' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'dev')
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Write clasp credentials
+        run: echo '${{ secrets.CLASP_TOKEN }}' > ~/.clasprc.json
+
+      - name: Write clasp project config (dev)
+        run: |
+          echo '{"scriptId":"${{ secrets.SCRIPT_ID_DEV }}","rootDir":"./dist"}' > .clasp.json
+
+      - name: Push to Apps Script (dev)
+        run: npx clasp push --force
+
+  deploy-prod:
+    name: Deploy to Prod
+    # Runs on pushes to main, or manual dispatch targeting prod
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'prod')
+    runs-on: ubuntu-latest
+    environment: prod   # configure this environment in GitHub to require a manual approval gate
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Write clasp credentials
+        run: echo '${{ secrets.CLASP_TOKEN }}' > ~/.clasprc.json
+
+      - name: Write clasp project config (prod)
+        run: |
+          echo '{"scriptId":"${{ secrets.SCRIPT_ID_PROD }}","rootDir":"./dist"}' > .clasp.json
+
+      - name: Push to Apps Script (prod)
+        run: npx clasp push --force
+
+      - name: Create version snapshot
+        run: npx clasp version "Deploy $(date -u +%Y-%m-%dT%H:%M:%SZ)"
