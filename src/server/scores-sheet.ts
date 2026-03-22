@@ -95,7 +95,7 @@ export function buildScoresSheet(
   // Deferred formatting: { row (1-based), col (1-based), rows, cols, ...style }
   interface Fmt {
     r: number; c: number; rows: number; cols: number;
-    bg?: string; fc?: string; bold?: boolean; fmt?: string; align?: string;
+    bg?: string; fc?: string; bold?: boolean; fmt?: string; align?: 'center' | 'normal' | 'left' | 'right';
   }
   const fmts: Fmt[] = [];
 
