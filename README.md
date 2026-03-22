@@ -1,20 +1,55 @@
 # fgc-league-sheets
 
-Google Sheets extension (Apps Script add-on) for managing a tiered FGC league. Handles group distribution, score matrix generation, promotion/demotion calculations, and rollback. A companion Discord bot (`adomi-san-bot`) can report match scores directly to the sheet — they share a sheet contract but no code.
+Google Sheets extension app (Apps Script add-on) for managing long-term League events for the FGC. This app automates handling group distribution, score matrix generation, promotion/demotion calculations, and rollback to previous versions.
+
+**Copy [this Template](https://docs.google.com/spreadsheets/d/1FojOkjQJD1dtr29fwH8bgabIdfxd-Yp72V0-pqbIqcc/edit?usp=sharing) to use this extension app.** Any time this app is updated, you will need to make a new copy from the template to get the latest version as Google snapshots the script when a copy is made.
+
+___It is required to maintain the formatting of the Participants sheet and generated Score sheet.___ App functionality depends on these formats.
+
+fgc-league-sheets also pairs with [Adomin-san Discord Bot](https://github.com/enpicie/adomi-san-bot)! Adomin also requires the formatting used with this app, and she helps participants join/deactivate from your league and report scores thru Discord.
 
 ---
 
 ## Table of Contents
 
-1. [How it works](#how-it-works)
-2. [First-time setup](#first-time-setup)
-3. [Setting up the Participants sheet](#setting-up-the-participants-sheet)
-4. [Using the extension](#using-the-extension)
-5. [Sheet contract](#sheet-contract)
-6. [Group distribution algorithm](#group-distribution-algorithm)
-7. [CI/CD](#cicd)
-8. [Local development](#local-development)
-9. [Troubleshooting](#troubleshooting)
+1. [Quick start](#quick-start)
+2. [How it works](#how-it-works)
+3. [First-time setup](#first-time-setup)
+4. [Setting up the Participants sheet](#setting-up-the-participants-sheet)
+5. [Using the extension](#using-the-extension)
+6. [Sheet contract](#sheet-contract)
+7. [Group distribution algorithm](#group-distribution-algorithm)
+8. [CI/CD](#cicd)
+9. [Local development](#local-development)
+10. [Troubleshooting](#troubleshooting)
+
+---
+
+## Quick start
+
+This is the end-to-end flow for running a rotation once the extension is deployed.
+
+### Before the first rotation
+
+Copy the Template File (linked at the top of this doc) to start with the core Participants sheet and have the latest version of this extension.
+
+### Each rotation
+
+```
+1. (Optional) Add new players with Status = QUEUED
+2. Phase 2B — Activate Queued Players   ← promotes QUEUED → ACTIVE
+3. Phase 1  — Start Cycle               ← assigns groups, creates Scores sheet
+4. Players enter match results in the Scores sheet
+5. Phase 2A — Preview                   ← review promotions, demotions, DNFs
+6. Phase 2A — Commit                    ← writes results back to Participants
+   └─ Rollback available immediately after commit if something looks wrong
+```
+
+**Open the sidebar:** League Manager → Open Sidebar (appears in the sheet menu bar after first push).
+
+**Phase 1 recommended settings:** Group size 5 min / 7 max · S tier = 1 group · A tier = 2 groups · remaining tiers auto.
+
+**After each rotation:** update the `Group Rank` column in Participants with each player's finishing rank within their group (1 = top). This seeds the groups for the next rotation.
 
 ---
 
@@ -284,7 +319,7 @@ Both groups get a spread of high and low ranked players.
 
 ## CI/CD
 
-The GitHub Actions workflow (`.github/workflows/deploy.yml`) builds and pushes to Apps Script on every push to `main`.
+The GitHub Actions workflow (`.github/workflows/deploy.yml`) builds and pushes to Apps Script on every push to `main`. It can also be triggered manually from **GitHub → Actions → Deploy → Run workflow**.
 
 **Required GitHub secret:**
 
@@ -305,8 +340,11 @@ Copy the entire JSON output and add it as `CLASPRC_JSON` in **GitHub → Setting
 **The script ID** is committed in `.clasp.json` directly, so no additional secret is needed for it.
 
 **Pipeline steps:**
-1. `npm ci` — install exact versions from lockfile
-2. `npm run push` — webpack build + copy `appsscript.json` to `dist/` + `clasp push --force`
+1. Checkout the repo
+2. Set up Node 20 with npm cache
+3. `npm ci` — install exact versions from lockfile
+4. Write clasp credentials — `printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json`. `printf` is used instead of `echo` to avoid appending a trailing newline, which would corrupt the JSON and cause an auth failure.
+5. `npm run push` — webpack build + copy `appsscript.json` to `dist/` + `clasp push --force`
 
 > `clasp push` is destructive — it replaces all remote files. The repo is always the source of truth. Never edit code in the browser Apps Script editor.
 
