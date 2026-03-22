@@ -155,6 +155,8 @@ export function buildScoresSheet(
       const player = group.players[pi];
       const playerRow = playerStartRow + pi;
       const matrixRange = `${col(MATRIX_START)}${playerRow}:${matrixRangeEnd}${playerRow}`;
+      // Losses column: the player's column in the matrix (opponents' wins against them)
+      const lossesColRange = `${col(MATRIX_START + pi)}${playerStartRow}:${col(MATRIX_START + pi)}${playerEndRow}`;
 
       // Static label
       allValues[playerRow - 1][LABEL_COL - 1] = player.name;
@@ -168,7 +170,7 @@ export function buildScoresSheet(
       });
       formulas.push({
         r: playerRow, c: PLAYED_COL,
-        f: `=COUNTA(${matrixRange})`,
+        f: `=SUM(${matrixRange})+SUM(${lossesColRange})`,
       });
       formulas.push({
         r: playerRow, c: WIN_PCT_COL,
