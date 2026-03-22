@@ -256,7 +256,7 @@ The Discord bot writes scores using the `Wins Row` and `Losses Col` values from 
 
 **DNF logic:** a player is marked DNF if they have played fewer matches than `N-1` (where N is their group size). They sit out the next rotation and automatically return to ACTIVE the rotation after.
 
-**Promotion/demotion:** the top N and bottom N players per group (by win%) move up or down one tier. N is configurable in the sidebar (default 1). Ties in win% are broken alphabetically by name.
+**Promotion/demotion:** the top N and bottom N players per group (by win%) move up or down one tier. N is configurable in the sidebar (default 1). Ties in win% are broken by head-to-head record (whoever won more games directly against the tied opponent ranks higher). If head-to-head is also equal, the tiebreak falls back to alphabetical order by name. Note: the Rank column displayed in the Scores sheet uses Win% only — head-to-head tiebreaking is applied server-side when Phase 2A runs.
 
 **Rollback:** if a backup exists from the last commit, a **Rollback** button appears in the sidebar. Clicking it restores Participants to exactly the state it was in before the last commit. The backup is overwritten on every new commit, so rollback only covers the most recent one.
 

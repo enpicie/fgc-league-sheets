@@ -5,7 +5,7 @@ import {
   findActiveScoresSheet,
   backupParticipants,
 } from './sheet-helpers';
-import { readScoreMatrix } from './scores-sheet';
+import { readScoreMatrix, readHeadToHeadMap } from './scores-sheet';
 
 /**
  * Phase 2A — Calculate promotions and demotions from current rotation results.
@@ -37,6 +37,7 @@ export function runPhase2A(
 
   const allPlayers = readAllPlayers().filter(p => p.status === 'ACTIVE' || p.status === 'DNF');
   const scoreMap = readScoreMatrix(scoresSheet.getName());
+  const h2h = readHeadToHeadMap(scoresSheet.getName());
 
   // Players who were already DNF sat out this rotation and return to ACTIVE.
   // Only ACTIVE players are checked for incomplete scores.
@@ -85,11 +86,16 @@ export function runPhase2A(
     const aboveTier = tierIdx > 0 ? tierOrder[tierIdx - 1] : null;
     const belowTier = tierIdx < tierOrder.length - 1 ? tierOrder[tierIdx + 1] : null;
 
-    // Sort by win percentage descending, then by name for tie-breaking
+    // Sort by win percentage descending.
+    // Ties broken by head-to-head record, then alphabetically.
     const ranked = [...groupPlayers].sort((a, b) => {
       const sa = scoreMap.get(a.name)?.winPct ?? 0;
       const sb = scoreMap.get(b.name)?.winPct ?? 0;
       if (sb !== sa) return sb - sa;
+      // Head-to-head: player with more wins over the other ranks higher
+      const aOverB = h2h.get(a.name)?.get(b.name) ?? 0;
+      const bOverA = h2h.get(b.name)?.get(a.name) ?? 0;
+      if (aOverB !== bOverA) return bOverA - aOverB;
       return a.name.localeCompare(b.name);
     });
 

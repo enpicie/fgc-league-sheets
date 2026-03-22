@@ -82,6 +82,7 @@ h3 {
 .form-row input[type='number'],
 .form-row input[type='text'] {
   flex: 1;
+  min-width: 0;
   border: 1px solid #dadce0;
   border-radius: 4px;
   padding: 4px 8px;
@@ -276,9 +277,11 @@ button {
 }
 
 .tab {
-  padding: 6px 12px;
+  flex: 1;
+  text-align: center;
+  padding: 6px 4px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: #5f6368;
   border-bottom: 2px solid transparent;

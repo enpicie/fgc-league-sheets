@@ -357,3 +357,60 @@ export function readScoreMatrix(scoresSheetName: string): Map<
 
   return results;
 }
+
+/**
+ * Read head-to-head results from the score matrix.
+ *
+ * Returns a nested map: h2h.get(playerA)?.get(playerB) = wins playerA has over playerB.
+ * Used to break win% ties in Phase 2A promotion/demotion ranking.
+ */
+export function readHeadToHeadMap(scoresSheetName: string): Map<string, Map<string, number>> {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(scoresSheetName);
+  if (!sheet) return new Map();
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2) return new Map();
+
+  const data = sheet.getRange(1, 1, lastRow, lastCol).getValues() as (string | number)[][];
+  const result = new Map<string, Map<string, number>>();
+
+  for (let r = 0; r < data.length; r++) {
+    const label = String(data[r][0] ?? '').trim();
+    if (!/^Group \d+$/.test(label)) continue;
+    if (r === 0) continue;
+
+    const tierHdr = data[r - 1];
+    const winsIdx = tierHdr.findIndex(c => String(c).trim() === 'Wins');
+    if (winsIdx < 0) continue;
+
+    // Collect ordered player names from the group header row (cols 1..winsIdx-1)
+    const playerNames: string[] = [];
+    for (let c = 1; c < winsIdx; c++) {
+      const name = String(data[r][c] ?? '').trim();
+      if (name) playerNames.push(name);
+    }
+    const N = playerNames.length;
+    if (N === 0) continue;
+
+    // Read each player row: col index 1+pj holds wins of row-player over playerNames[pj]
+    for (let pi = 0; pi < N; pi++) {
+      const pr = r + 1 + pi;
+      if (pr >= data.length) break;
+      const playerRow = data[pr];
+      const rowPlayer = playerNames[pi];
+
+      if (!result.has(rowPlayer)) result.set(rowPlayer, new Map());
+
+      for (let pj = 0; pj < N; pj++) {
+        if (pi === pj) continue; // diagonal — skip self
+        const colPlayer = playerNames[pj];
+        const wins = Number(playerRow[1 + pj]) || 0;
+        result.get(rowPlayer)!.set(colPlayer, wins);
+      }
+    }
+  }
+
+  return result;
+}
