@@ -35,14 +35,26 @@ export function runPhase2A(
     };
   }
 
-  const players = readAllPlayers().filter(p => p.status === 'ACTIVE' || p.status === 'DNF');
+  const allPlayers = readAllPlayers().filter(p => p.status === 'ACTIVE' || p.status === 'DNF');
   const scoreMap = readScoreMatrix(scoresSheet.getName());
 
-  // Flag DNF players — those with incomplete rows in the score matrix
-  const dnfPlayers = players.filter(p => {
+  // Players who were already DNF sat out this rotation and return to ACTIVE.
+  // Only ACTIVE players are checked for incomplete scores.
+  const returningFromDnf = allPlayers.filter(p => p.status === 'DNF');
+  const activePlayers = allPlayers.filter(p => p.status === 'ACTIVE');
+
+  // Flag DNF players — ACTIVE players with incomplete rows in the score matrix
+  const dnfPlayers = activePlayers.filter(p => {
     const score = scoreMap.get(p.name);
     return score?.incomplete ?? false;
   });
+
+  if (returningFromDnf.length > 0) {
+    warnings.push(
+      `${returningFromDnf.length} player(s) returning from DNF sit-out and will be restored to ACTIVE: ` +
+        returningFromDnf.map(p => p.name).join(', ')
+    );
+  }
 
   if (dnfPlayers.length > 0) {
     warnings.push(
@@ -51,11 +63,11 @@ export function runPhase2A(
     );
   }
 
-  // Group active (non-DNF) players by tier and group
+  // Group active (non-DNF) players by tier and group — exclude returning DNF too
   type GroupKey = string; // "Tier:GroupNumber"
-  const groups = new Map<GroupKey, typeof players[0][]>();
+  const groups = new Map<GroupKey, typeof allPlayers[0][]>();
 
-  for (const p of players) {
+  for (const p of activePlayers) {
     if (dnfPlayers.includes(p)) continue;
     const key = `${p.tier}:${p.group}`;
     if (!groups.has(key)) groups.set(key, []);
@@ -106,6 +118,9 @@ export function runPhase2A(
 
     const statusUpdates: Array<{ rowIndex: number; status: 'ACTIVE' | 'DNF'; tier?: string }> = [];
 
+    for (const p of returningFromDnf) {
+      statusUpdates.push({ rowIndex: p.rowIndex, status: 'ACTIVE' });
+    }
     for (const p of dnfPlayers) {
       statusUpdates.push({ rowIndex: p.rowIndex, status: 'DNF' });
     }

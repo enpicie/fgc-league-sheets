@@ -38,6 +38,16 @@ export function readAllPlayers(): Player[] {
   return players;
 }
 
+function colIndexToLetter(n: number): string {
+  let result = '';
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    result = String.fromCharCode(65 + rem) + result;
+    n = Math.floor((n - 1) / 26);
+  }
+  return result;
+}
+
 export function writePlayerAssignments(
   players: Array<{
     rowIndex: number;
@@ -53,7 +63,7 @@ export function writePlayerAssignments(
     // Batch: Tier/Group/GroupRank are contiguous cols 4-6
     sheet.getRange(p.rowIndex, COL.TIER, 1, 3).setValues([[p.tier, p.group, p.groupRank]]);
     // Batch: WinsRow/LossesCol are contiguous cols 8-9
-    sheet.getRange(p.rowIndex, COL.WINS_ROW, 1, 2).setValues([[p.winsRow, p.lossesCol]]);
+    sheet.getRange(p.rowIndex, COL.WINS_ROW, 1, 2).setValues([[p.winsRow, colIndexToLetter(p.lossesCol)]]);
   }
 }
 
@@ -69,17 +79,12 @@ export function writePlayerStatuses(
   }
 }
 
-export function writeRotationNumber(rotationNumber: number): void {
+export function writeCurrentScoresSheetName(sheetName: string): void {
   const sheet = getParticipantsSheet();
   sheet.getRange(1, COL.ROTATION_LABEL).setValue('Current Rotation:');
-  sheet.getRange(1, COL.ROTATION_VALUE).setValue(rotationNumber);
+  sheet.getRange(1, COL.ROTATION_VALUE).setValue(sheetName);
 }
 
-export function readRotationNumber(): number | null {
-  const sheet = getParticipantsSheet();
-  const val = sheet.getRange(1, COL.ROTATION_VALUE).getValue();
-  return val ? Number(val) : null;
-}
 
 /** Build the Scores sheet name from optional label and rotation number. */
 export function buildScoresSheetName(
@@ -173,7 +178,6 @@ export function getRotationSummary(): RotationSummary {
   )].sort();
 
   return {
-    rotationNumber: readRotationNumber(),
     scoresSheetName: activeScores?.getName() ?? null,
     activePlayers: players.filter(p => p.status === 'ACTIVE').length,
     queuedPlayers: players.filter(p => p.status === 'QUEUED').length,

@@ -2,7 +2,7 @@ import { LeagueConfig, Phase1Result } from './types';
 import {
   readAllPlayers,
   writePlayerAssignments,
-  writeRotationNumber,
+  writeCurrentScoresSheetName,
   findActiveScoresSheet,
   archiveScoresSheet,
   buildScoresSheetName,
@@ -65,10 +65,8 @@ export function runPhase1(config: LeagueConfig): Phase1Result {
     }))
   );
 
-  // Step 5: write rotation number
-  if (config.rotationNumber !== undefined) {
-    writeRotationNumber(config.rotationNumber);
-  }
+  // Step 5: write scores sheet name to K1 so the bot and operators can identify the current rotation
+  writeCurrentScoresSheetName(scoresSheetName);
 
   return { success: true, warnings, scoresSheetName };
 }

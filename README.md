@@ -119,7 +119,7 @@ The extension reads from and writes to a sheet named exactly **`Participants`** 
 | H | `Wins Row` | Written by the extension — sheet row in current Scores matrix |
 | I | `Losses Col` | Written by the extension — sheet column in current Scores matrix |
 | J | `Current Rotation:` | Label cell — do not change |
-| K | *(rotation value)* | Written by the extension on Phase 1 |
+| K | *(scores sheet name)* | Written by the extension on Phase 1 — the name of the active Scores sheet |
 
 **Player statuses:**
 
@@ -167,7 +167,7 @@ On the next Phase 1 run, the current Scores sheet is renamed to `Prev Scores ...
 - `Group #` — group number within tier
 - `Wins Row` — the sheet row in the Scores matrix for this player's wins
 - `Losses Col` — the sheet column in the Scores matrix for this player's losses
-- `Current Rotation:` (K1) — the rotation number if one was provided
+- `Current Rotation:` (K1) — the name of the newly created Scores sheet
 
 **Warnings:** Phase 1 warns (but does not block) if there are queued players who haven't been activated yet.
 
@@ -248,7 +248,7 @@ This contract is shared with `adomi-san-bot`. Both projects must honour it.
 **Bot score reporting flow:**
 1. Bot receives a score report from Discord
 2. Reads Participants to find winner and loser by `Discord ID (@)`
-3. Reads K1 to get the current rotation number, resolves the target Scores sheet
+3. Reads K1 to get the current Scores sheet name directly
 4. Uses `Wins Row` for the winner and `Losses Col` for the loser
 5. Writes the win count to `sheet[winsRow, lossesCol]`
 6. Appends to `ReportLog`: `LeagueID | Tier | Group | Winner | Loser | WinnerScore | LoserScore | Timestamp`

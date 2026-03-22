@@ -6,7 +6,6 @@ export interface TierConfigRow {
 }
 
 export interface RotationSummary {
-  rotationNumber: number | null;
   scoresSheetName: string | null;
   activePlayers: number;
   queuedPlayers: number;

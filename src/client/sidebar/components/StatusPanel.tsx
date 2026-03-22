@@ -26,9 +26,6 @@ export default function StatusPanel({ summary, loading, onRefresh }: Props) {
 
       {!loading && summary && (
         <div className="status-grid">
-          <span className="label">Rotation #</span>
-          <span className="value">{summary.rotationNumber ?? '—'}</span>
-
           <span className="label">Scores sheet</span>
           <span className="value" style={{ fontSize: 11 }}>{summary.scoresSheetName ?? '—'}</span>
 
