@@ -1,4 +1,4 @@
-**/**
-!dist/Code.js
-!dist/sidebar.html
-!appsscript.json
+# rootDir is ./dist — clasp only sees files inside dist/.
+# Paths here are relative to rootDir, not the repo root.
+# Push everything that lands in dist/ after the build.
+node_modules/

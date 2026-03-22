@@ -21,6 +21,13 @@ jobs:
       - run: npm ci
 
       - name: Write clasp credentials
-        run: echo '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json
+
+      - name: Verify credentials file
+        run: |
+          echo "File size: $(wc -c < ~/.clasprc.json) bytes"
+          echo "Has token key: $(python3 -c "import json,sys; d=json.load(open('/root/.clasprc.json')); print('token' in d)")"
 
       - run: npm run push
