@@ -3,11 +3,7 @@
   "version": "1.0.0",
   "description": "Google Sheets extension for FGC tiered league management",
   "scripts": {
-    "build": "webpack --mode production",
-    "build:dev": "webpack --mode development",
-    "watch": "webpack --mode development --watch",
-    "push": "npm run build && clasp push --force",
-    "push:dev": "npm run build:dev && clasp push --force",
+    "push": "webpack --mode production && cp appsscript.json dist/ && clasp push --force",
     "login": "clasp login",
     "open": "clasp open"
   },
