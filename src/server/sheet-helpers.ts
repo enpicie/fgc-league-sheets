@@ -50,11 +50,10 @@ export function writePlayerAssignments(
 ): void {
   const sheet = getParticipantsSheet();
   for (const p of players) {
-    sheet.getRange(p.rowIndex, COL.TIER).setValue(p.tier);
-    sheet.getRange(p.rowIndex, COL.GROUP).setValue(p.group);
-    sheet.getRange(p.rowIndex, COL.GROUP_RANK).setValue(p.groupRank);
-    sheet.getRange(p.rowIndex, COL.WINS_ROW).setValue(p.winsRow);
-    sheet.getRange(p.rowIndex, COL.LOSSES_COL).setValue(p.lossesCol);
+    // Batch: Tier/Group/GroupRank are contiguous cols 4-6
+    sheet.getRange(p.rowIndex, COL.TIER, 1, 3).setValues([[p.tier, p.group, p.groupRank]]);
+    // Batch: WinsRow/LossesCol are contiguous cols 8-9
+    sheet.getRange(p.rowIndex, COL.WINS_ROW, 1, 2).setValues([[p.winsRow, p.lossesCol]]);
   }
 }
 
@@ -167,7 +166,6 @@ export function restoreParticipantsFromBackup(): void {
 
 export function getRotationSummary(): RotationSummary {
   const players = readAllPlayers();
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
   const activeScores = findActiveScoresSheet();
 
   const tiers = [...new Set(

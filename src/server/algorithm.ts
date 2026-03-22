@@ -73,7 +73,6 @@ export function distributeGroups(
     const tierPlayers = playersByTier.get(tierCfg.name)!;
     const count = tierPlayers.length;
     const warnings: string[] = [];
-    const fillPromotions: Player[] = [];
 
     let groupCount: number;
 
@@ -106,7 +105,7 @@ export function distributeGroups(
     // Phase 2 — interleave players across groups by rank
     const groups = buildGroups(tierPlayers, groupCount, tierCfg.name);
 
-    results.push({ tier: tierCfg.name, groupCount, groups, warnings, fillPromotions });
+    results.push({ tier: tierCfg.name, groupCount, groups, warnings, fillPromotions: [] });
   }
 
   return { tiers: results, warnings: globalWarnings };
@@ -159,7 +158,7 @@ function buildGroups(
     players: [],
   }));
 
-  // Round-robin interleave (snake draft: 1,2,3,3,2,1,1,2,3,...)
+  // Round-robin interleave: player 0 → group 0, player 1 → group 1, …, player N → group 0, …
   for (let i = 0; i < sorted.length; i++) {
     const groupIdx = i % groupCount;
     groups[groupIdx].players.push(sorted[i]);

@@ -1,179 +1,392 @@
 # fgc-league-sheets
 
-Google Sheets extension (Apps Script add-on) for managing a tiered FGC league system. Handles group distribution, rotation cycle management, score matrix generation, and promotion/demotion calculations.
-
-A companion Discord bot (`adomi-san-bot`) can report scores directly to the sheet, but the extension is fully usable with manual score entry. They share a **sheet contract** (column layout, sheet naming) but not code.
+Google Sheets extension (Apps Script add-on) for managing a tiered FGC league. Handles group distribution, score matrix generation, promotion/demotion calculations, and rollback. A companion Discord bot (`adomi-san-bot`) can report match scores directly to the sheet — they share a sheet contract but no code.
 
 ---
 
-## Features
+## Table of Contents
 
-- **Phase 1 — Start Cycle:** archives the previous scores sheet, runs the group distribution algorithm, generates a new score matrix, and writes player positions back to the Participants sheet.
-- **Phase 2A — End Cycle:** reads win% from the current scores sheet, flags DNF players, and calculates promotions/demotions. Supports a preview mode before committing changes.
-- **Phase 2B — Activate Queued Players:** promotes queued players to active so they are included in the next Phase 1 run.
-- **Group distribution algorithm:** top-down, monotonicity-constrained. Supports optional `desired_groups` per tier with automatic fallback and fill-promotion from the tier below.
-- **Sidebar UI:** React sidebar with live state display, tier configuration, and per-phase controls.
+1. [How it works](#how-it-works)
+2. [First-time setup](#first-time-setup)
+3. [Setting up the Participants sheet](#setting-up-the-participants-sheet)
+4. [Using the extension](#using-the-extension)
+5. [Sheet contract](#sheet-contract)
+6. [Group distribution algorithm](#group-distribution-algorithm)
+7. [CI/CD](#cicd)
+8. [Local development](#local-development)
+9. [Troubleshooting](#troubleshooting)
 
 ---
 
-## Sheet Contract
+## How it works
 
-Both this extension and `adomi-san-bot` depend on this layout. Do not rename columns.
+The extension is a [bound Google Apps Script](https://developers.google.com/apps-script/guides/bound) attached to a specific Google Sheet. It adds a **League Manager** menu to the sheet's menu bar. From there, operators open a sidebar that drives the two-phase rotation lifecycle:
 
-### Participants Sheet
+```
+Phase 1 (Start Cycle)          Phase 2 (End Cycle)
+─────────────────────          ───────────────────
+Archive old Scores sheet   →   Read win% from Scores sheet
+Run group distribution     →   Flag DNF players
+Generate new Scores sheet  →   Calculate promotions/demotions
+Write assignments back     →   Commit or rollback changes
+```
 
-Row 1 is the header row. Data starts at row 2.
+The extension is **stateless** — every operation reads the current state of the Participants sheet and derives everything from it. There is no memory of previous rotations beyond what the sheet itself records.
+
+---
+
+## First-time setup
+
+### Prerequisites
+
+- Node.js 20+
+- A Google account
+- Google Apps Script API enabled on your account:
+  1. Go to `script.google.com/home/usersettings`
+  2. Toggle **Google Apps Script API** to **On**
+  - This is a one-time per-account setting. Without it, `clasp push` will fail with a cryptic token error.
+
+### 1. Create the Google Sheet
+
+1. Go to [sheets.google.com](https://sheets.google.com) and create a new spreadsheet
+2. Name it whatever you like (e.g. "FGC League")
+3. Open **Extensions → Apps Script** from the sheet's menu bar
+4. This creates a bound script project. Copy the script ID from the URL:
+   ```
+   https://script.google.com/home/projects/{SCRIPT_ID}/edit
+   ```
+5. Rename the Apps Script project if desired (click the project name at the top of the editor)
+
+### 2. Clone and install
+
+```bash
+git clone <this repo>
+cd fgc-league-sheets
+npm install
+```
+
+### 3. Log in to clasp
+
+```bash
+npx clasp login
+```
+
+This opens a browser. Sign in with the same Google account that owns the sheet. After authorizing, clasp writes credentials to `~/.clasprc.json`.
+
+> **Important:** The clasp version in `package.json` must match the version you logged in with. Check with `clasp --version` on the machine you used to log in. If they differ, update `package.json` to match.
+
+### 4. Set the script ID
+
+Edit `.clasp.json` and replace the placeholder with your script ID:
+
+```json
+{
+  "scriptId": "YOUR_SCRIPT_ID_HERE",
+  "rootDir": "./dist"
+}
+```
+
+### 5. Push and authorize
+
+```bash
+npm run push
+```
+
+Then:
+1. Open the Google Sheet
+2. A **League Manager** menu should appear in the menu bar
+3. Click **League Manager → Open Sidebar**
+4. On the first run, Google will show an authorization dialog — click through it
+5. The sidebar will open
+
+If the menu doesn't appear, close and reopen the sheet tab. If it still doesn't appear, go to **Extensions → Apps Script**, select `onOpen` from the function dropdown, and click **Run** to trigger the authorization flow manually.
+
+---
+
+## Setting up the Participants sheet
+
+The extension reads from and writes to a sheet named exactly **`Participants`** (case-sensitive). Create this sheet in your workbook and set up the following column headers in **row 1**:
 
 | Col | Header | Notes |
 |-----|--------|-------|
-| A | `Status` | `ACTIVE`, `QUEUED`, `DNF`, or `INACTIVE` |
-| B | `Discord ID (@)` | Discord handle for bot lookups |
-| C | `Participant Name` | Display name used in score matrix |
-| D | `Tier` | Current tier assignment |
-| E | `Group #` | Group within tier |
-| F | `Group Rank` | Rank within group (used for seeding next rotation) |
-| G | `Notes` | Operator notes |
-| H | `Wins Row` | Sheet row in current scores matrix (written by extension) |
-| I | `Losses Col` | Sheet column in current scores matrix (written by extension) |
-| J | `Current Rotation:` | Label — do not change |
-| K | *(rotation value)* | Integer rotation number (written by extension) |
+| A | `Status` | Set a dropdown: `ACTIVE`, `QUEUED`, `DNF`, `INACTIVE` |
+| B | `Discord ID (@)` | Discord handle — used by the bot for score lookups |
+| C | `Participant Name` | Display name shown in the score matrix |
+| D | `Tier` | Current tier (e.g. `S`, `A`, `B`, `C`, `D`) |
+| E | `Group #` | Written by the extension on Phase 1 |
+| F | `Group Rank` | Rank within group — used to seed groups next rotation |
+| G | `Notes` | Freeform operator notes |
+| H | `Wins Row` | Written by the extension — sheet row in current Scores matrix |
+| I | `Losses Col` | Written by the extension — sheet column in current Scores matrix |
+| J | `Current Rotation:` | Label cell — do not change |
+| K | *(rotation value)* | Written by the extension on Phase 1 |
 
-### Scores Sheet Naming
+**Player statuses:**
 
-| Parameters | Sheet name |
-|------------|------------|
-| Neither | `Scores` |
-| Label only (`Week`) | `Scores Week` |
-| Number only (`3`) | `Scores 3` |
-| Both | `Scores Week-3` |
+| Status | Meaning |
+|--------|---------|
+| `ACTIVE` | In the current rotation — included in Phase 1 group distribution |
+| `QUEUED` | Waiting to be activated — run Phase 2B to promote to ACTIVE |
+| `DNF` | Did not finish last rotation — sits out one cycle, then returns as ACTIVE |
+| `INACTIVE` | Excluded from all calculations |
 
-On archive (Phase 1), `Prev ` is prepended: `Prev Scores Week-3`.
+**To add a new player:** add a row with Status = `QUEUED`, fill in their name and tier, leave all other columns blank. Run Phase 2B when ready to activate them.
 
-### Score Matrix Layout
-
-- Row 1: header (`Tier`, `Group`, `Player`, then opponent names)
-- Each group: one header row + one row per player + one blank separator row
-- Cell `[wins_row, losses_col]` = number of wins that row-player has over col-player
-- Diagonal cells = `—` (self-play)
-- Frozen: row 1 (header), columns 1–3 (Tier, Group, Player)
+**Group Rank:** after each rotation, update this column with each player's final rank within their group (1 = top). The extension uses this to seed groups in the next Phase 1 run, interleaving players across groups so each group gets a mix of skill levels. Leave at 0 for new players.
 
 ---
 
-## Local Development
+## Using the extension
 
-**Prerequisites:** Node.js 18+, a Google account, `clasp` CLI.
+Open the sidebar via **League Manager → Open Sidebar**. The top of the sidebar always shows the current rotation state (rotation number, active Scores sheet name, player counts by status).
+
+### Phase 1 — Start Cycle
+
+Generates groups and creates a new score matrix sheet.
+
+**Configuration:**
+
+- **Cycle label** *(optional)* — a human-readable label like `Week`. Combined with rotation number to name the sheet.
+- **Rotation #** *(optional)* — integer rotation number. Combined with cycle label.
+- **Group size** — min and max players per group. **Recommended: 5 min / 7 max.**
+- **Tier configuration** — list of tiers top to bottom. For each tier, optionally set a desired group count. **Recommended: S = 1 group, A = 2 groups, B/C/D = auto.**
+
+**Sheet naming:**
+
+| Inputs | Sheet name |
+|--------|------------|
+| No label, no number | `Scores` |
+| Label = `Week` | `Scores Week` |
+| Number = `3` | `Scores 3` |
+| Label = `Week`, Number = `3` | `Scores Week-3` |
+
+On the next Phase 1 run, the current Scores sheet is renamed to `Prev Scores ...` before a new one is generated. There is always exactly one active `Scores` sheet and one `Prev Scores` sheet.
+
+**What Phase 1 writes to Participants:**
+- `Tier` — updated for fill-promoted players
+- `Group #` — group number within tier
+- `Wins Row` — the sheet row in the Scores matrix for this player's wins
+- `Losses Col` — the sheet column in the Scores matrix for this player's losses
+- `Current Rotation:` (K1) — the rotation number if one was provided
+
+**Warnings:** Phase 1 warns (but does not block) if there are queued players who haven't been activated yet.
+
+---
+
+### Entering scores
+
+Scores are entered directly into the Scores sheet. Each group block has this layout:
+
+```
+Row 1 │ Tier │ In Progress │ Wins -> │ … │ Wins │ Played │ Win%  │ Rank │
+Row 2 │ Group N │ Player A │ Player B │ … │ Wins │ Played │ Win%  │ Rank │  ← pink
+Row 3 │ Player A │   │ ■  │ …  │ =formula │ =formula │ =formula │ =formula │
+Row 4 │ Player B │   │    │ …  │
+…
+Row N+3 │ Losses │ =col sum │ … │ Total │ Completion │ =% │
+Row N+4 │ (blank separator)
+```
+
+- **Rows = wins.** Cell `[Player A's row, Player B's column]` = wins that Player A has over Player B.
+- **Columns = losses.** A player's losses column is filled in by their opponents' rows.
+- **Black diagonal cells** = self-play (no value, never edited).
+- **Win%, Rank, and Completion** update automatically via formulas as scores are entered.
+- **"In Progress" / "Completed"** — the status cell in each tier header updates automatically when Completion reaches 100%.
+
+The Discord bot writes scores using the `Wins Row` and `Losses Col` values from Participants. Manual entry works the same way.
+
+**Colour guide:**
+
+| Colour | Element |
+|--------|---------|
+| Pink | Group column headers and Losses footer rows |
+| Blue | Player name column |
+| Black | Diagonal (self-play) cells |
+| Green | Win% column |
+| Gold | Rank column |
+| Yellow | "In Progress" status |
+| Light gray | Tier header row |
+
+---
+
+### Phase 2 — End Cycle
+
+#### Step A — Calculate Promotions & Demotions
+
+1. Click **Preview** to see which players promote, demote, or are flagged DNF — no changes are written.
+2. Review the list.
+3. Click **Commit** to apply the changes to Participants.
+
+**Before committing**, the extension automatically saves a full copy of Participants to a hidden `_ParticipantsBackup` sheet.
+
+**DNF logic:** a player is marked DNF if they have played fewer matches than `N-1` (where N is their group size). They sit out the next rotation and automatically return to ACTIVE the rotation after.
+
+**Promotion/demotion:** the top N and bottom N players per group (by win%) move up or down one tier. N is configurable in the sidebar (default 1). Ties in win% are broken alphabetically by name.
+
+**Rollback:** if a backup exists from the last commit, a **Rollback** button appears in the sidebar. Clicking it restores Participants to exactly the state it was in before the last commit. The backup is overwritten on every new commit, so rollback only covers the most recent one.
+
+#### Step B — Activate Queued Players
+
+Moves all `QUEUED` players to `ACTIVE`. They will be sorted into groups on the next Phase 1 run. Run this before Phase 1 if new players should be included in the upcoming rotation.
+
+---
+
+## Sheet contract
+
+This contract is shared with `adomi-san-bot`. Both projects must honour it.
+
+**Sheet names:**
+
+| Sheet | Purpose |
+|-------|---------|
+| `Participants` | Persistent player roster — the source of truth |
+| `Scores ...` | Current rotation score matrix |
+| `Prev Scores ...` | Previous rotation matrix (archived by Phase 1) |
+| `ReportLog` | Bot-owned append-only score log — the extension never touches it |
+| `_ParticipantsBackup` | Hidden — created by Phase 2A commit for rollback |
+
+**Bot score reporting flow:**
+1. Bot receives a score report from Discord
+2. Reads Participants to find winner and loser by `Discord ID (@)`
+3. Reads K1 to get the current rotation number, resolves the target Scores sheet
+4. Uses `Wins Row` for the winner and `Losses Col` for the loser
+5. Writes the win count to `sheet[winsRow, lossesCol]`
+6. Appends to `ReportLog`: `LeagueID | Tier | Group | Winner | Loser | WinnerScore | LoserScore | Timestamp`
+
+---
+
+## Group distribution algorithm
+
+The algorithm is top-down and monotonicity-constrained.
+
+**Phase 1 — Resolve group counts:**
+
+For each tier in order (top to bottom):
+- If `desired_groups` is set and `desired_groups × min ≤ players ≤ desired_groups × max` → use it
+- Otherwise derive: `min_groups = ceil(players / max_size)`, pick the fewest groups (largest groups = most competitive)
+- **Monotonicity:** each tier's group count must be ≥ the tier above it. If the derived count would violate this, it is raised with a warning.
+
+**Fill promotion:** if a tier with `desired_groups` set doesn't have enough players to reach `desired_groups × min_size`, the top-ranked players from the tier below are temporarily promoted to fill it. These players may revert next rotation.
+
+**Phase 2 — Within-tier balancing:**
+
+Players are sorted by `Group Rank` ascending (rank 1 = highest), then distributed round-robin across groups. This interleaves skill levels so each group gets a mix rather than chunking the best players together.
+
+**Example with 15 players, 2 groups, size 5–7:**
+```
+Sorted rank: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+Group 1:     1, 3, 5, 7, 9, 11, 13, 15
+Group 2:     2, 4, 6, 8, 10, 12, 14
+```
+Both groups get a spread of high and low ranked players.
+
+---
+
+## CI/CD
+
+The GitHub Actions workflow (`.github/workflows/deploy.yml`) builds and pushes to Apps Script on every push to `main`.
+
+**Required GitHub secret:**
+
+| Secret | Value |
+|--------|-------|
+| `CLASPRC_JSON` | Full contents of `~/.clasprc.json` after running `clasp login` |
+
+**To get the token:**
+```bash
+npx clasp login
+# Then read the file:
+cat ~/.clasprc.json   # macOS/Linux
+type %USERPROFILE%\.clasprc.json   # Windows
+```
+
+Copy the entire JSON output and add it as `CLASPRC_JSON` in **GitHub → Settings → Secrets and variables → Actions**.
+
+**The script ID** is committed in `.clasp.json` directly, so no additional secret is needed for it.
+
+**Pipeline steps:**
+1. `npm ci` — install exact versions from lockfile
+2. `npm run push` — webpack build + copy `appsscript.json` to `dist/` + `clasp push --force`
+
+> `clasp push` is destructive — it replaces all remote files. The repo is always the source of truth. Never edit code in the browser Apps Script editor.
+
+---
+
+## Local development
 
 ```bash
 # Install dependencies
 npm install
 
-# Log in to clasp (one-time)
+# Log in to clasp (one-time per machine)
 npx clasp login
-
-# Create a new Apps Script project bound to a Google Sheet
-# Open the sheet, then Extensions → Apps Script, copy the script ID from the URL
-# Update .clasp.json with the script ID
-
-# Or create a standalone script:
-npx clasp create --type sheets --title "FGC League Manager"
 
 # Build and push to Apps Script
 npm run push
 
-# Watch mode (rebuilds on save, you still need to push manually)
-npm run watch
+# Open the Apps Script project in the browser
+npm run open
 ```
 
-### Project Structure
+**Stack:** webpack 5, TypeScript, React 18, `gas-webpack-plugin`, `html-webpack-plugin`
 
+The build produces two output files in `dist/`:
+- `Code.js` — the server-side GAS bundle (all server TypeScript compiled and wrapped)
+- `sidebar.html` — the React sidebar inlined into a single HTML file (no external script references)
+- `appsscript.json` — copied from the repo root by the push script
+
+`sidebar-bundle.js` is excluded from the push via `.claspignore` — it is inlined into `sidebar.html` and must not be pushed separately, as GAS would execute it server-side where `document` is undefined.
+
+**Project structure:**
 ```
 src/
-  server/             # Apps Script (GAS) server-side code
-    index.ts          # onOpen menu, global function declarations
-    types.ts          # Shared TypeScript types
-    sheet-helpers.ts  # Participants sheet read/write helpers
-    scores-sheet.ts   # Score matrix builder and reader
-    algorithm.ts      # Group distribution algorithm
-    phase1.ts         # Start Cycle logic
-    phase2.ts         # End Cycle logic (promotions, DNF, activate)
+  server/
+    index.ts          — onOpen menu, global function declarations for google.script.run
+    types.ts          — shared TypeScript interfaces and column constants
+    sheet-helpers.ts  — Participants read/write, backup/restore, sheet naming
+    scores-sheet.ts   — score matrix builder and reader
+    algorithm.ts      — group distribution algorithm
+    phase1.ts         — Start Cycle orchestration
+    phase2.ts         — End Cycle: promotions, DNF, activate queued, backup
   client/
-    sidebar/          # React sidebar
-      App.tsx         # Root component with tab navigation
-      components/     # StatusPanel, Phase1Panel, Phase2Panel, WarningList
-      styles.css      # Sidebar stylesheet
-      index.html      # Sidebar HTML shell
-      index.tsx       # React entry point
-dist/                 # Webpack output — what clasp pushes
-  Code.js
-  sidebar.html
-appsscript.json       # Apps Script manifest
-.clasp.json           # clasp config (update scriptId before pushing)
+    sidebar/
+      App.tsx                     — tab navigation, status refresh
+      components/
+        StatusPanel.tsx           — rotation state display
+        Phase1Panel.tsx           — cycle config form and start button
+        Phase2Panel.tsx           — promotions preview/commit, rollback, activate queued
+        WarningList.tsx           — warning display
+      styles.css                  — Google-style sidebar theme
+      types.ts                    — client-side type mirrors
+      gas.d.ts                    — google.script.run TypeScript declarations
+      index.html / index.tsx      — React entry point
 ```
 
 ---
 
-## CI/CD (GitHub Actions)
+## Troubleshooting
 
-On every push to `main`, the workflow:
-1. Installs dependencies
-2. Runs `npm run build` (webpack)
-3. Writes clasp credentials from the `CLASP_TOKEN` secret
-4. Pushes to Apps Script with `clasp push --force`
-5. Creates a version snapshot
+**"League Manager" menu doesn't appear**
+- Close and reopen the sheet tab — `onOpen` only fires on sheet load
+- Go to **Extensions → Apps Script → Run → onOpen** to trigger authorization manually
 
-### Setup
+**`ReferenceError: document is not defined`**
+- `sidebar-bundle.js` was pushed to Apps Script and GAS tried to execute it server-side
+- Ensure `.claspignore` contains `sidebar-bundle.js`
+- Re-push
 
-1. On your machine, run `npx clasp login` and copy the contents of `~/.clasprc.json`.
-2. In your GitHub repo → **Settings → Secrets and variables → Actions**, create a secret named `CLASP_TOKEN` with that JSON as the value.
-3. Update `.clasp.json` with your Apps Script `scriptId`.
-4. Push to `main` — the workflow deploys automatically.
+**`Error retrieving access token`**
+- The Google Apps Script API is not enabled — go to `script.google.com/home/usersettings` and toggle it on
+- Or the clasp version used to log in doesn't match the one in `package.json` — check both with `clasp --version` and align them
 
-> **Important:** `clasp push` is destructive. The repo is the source of truth. Never edit the script in the browser editor.
+**Phase 1 produces no groups / warnings about unrecognized tiers**
+- Players in Participants have a `Tier` value that doesn't match any tier in the Phase 1 config
+- Tier names are case-sensitive — `S` ≠ `s`
 
----
+**Phase 2 shows no movements**
+- No active Scores sheet found, or scores haven't been entered yet
+- `Played` column shows 0 for all players — no scores have been recorded
 
-## Group Distribution Algorithm
-
-**Input:**
-```json
-{
-  "groupSize": { "min": 4, "max": 8 },
-  "tiers": [
-    { "name": "S", "desiredGroups": 1 },
-    { "name": "A" },
-    { "name": "B" },
-    { "name": "C" },
-    { "name": "D" }
-  ]
-}
-```
-
-**Phase 1 — Resolve group counts (top-down):**
-- If `desiredGroups` is set and valid (`desiredGroups × min ≤ players ≤ desiredGroups × max`), use it.
-- Otherwise derive: `min_groups = ceil(players / max_size)`, pick the fewest groups (largest groups = most competitive).
-- **Monotonicity constraint:** each tier's group count ≥ the tier above it.
-- **Fill promotion:** if a tier is undersized after locking, pull top-ranked players from the tier below. These players may revert next rotation.
-
-**Phase 2 — Within-tier group balancing:**
-- Sort players by `Group Rank` ascending, then interleave round-robin across groups.
-- This gives each group a mix of rankings rather than chunking top/bottom players together.
-
----
-
-## Promotion / Demotion Rules
-
-- After a rotation, win% is calculated per player: `wins / (wins + losses)`.
-- The top N and bottom N players per group are promoted/demoted (N configurable in the sidebar, default 1).
-- Players with incomplete rows in the scores matrix are flagged as **DNF** and sit out the next rotation.
-- Tie-breaking in win%: alphabetical by name (deterministic, TBD for operator override).
-- Preview mode shows the movements without writing anything; **Commit** applies them to Participants.
-
----
-
-## League Rules Summary
-
-- Tiers: S → A → B → C → D (configurable)
-- Each tier is split into groups per rotation (round-robin within group)
-- New (QUEUED) players are activated via Phase 2B and sorted into groups on the next Phase 1 run
-- DNF players sit out one rotation and return as ACTIVE the following cycle
-- INACTIVE players are excluded from all calculations
+**Rollback button doesn't appear**
+- No backup exists — Phase 2A has not been committed in this session
+- The backup is created at commit time, not at preview time

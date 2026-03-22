@@ -112,8 +112,6 @@ export function buildScoresSheet(
     const lossesRow = sheetRow + 2 + N;
     const blankRow = sheetRow + 3 + N;
 
-    const matrixEndCol = maxGroupSize + 1; // = MATRIX_START + maxGroupSize - 1
-
     // Cell address helpers
     const A = (r: number, c: number) => `${col(c)}${r}`;
     const completionRef = A(lossesRow, WIN_PCT_COL);
@@ -212,7 +210,6 @@ export function buildScoresSheet(
     lv[PLAYED_COL - 1] = 'Completion';
 
     // Column-sum formulas for each player's losses
-    const lossRangeRows = `${playerStartRow}:${playerEndRow}`;
     for (let pi = 0; pi < N; pi++) {
       const playerCol = MATRIX_START + pi;
       formulas.push({

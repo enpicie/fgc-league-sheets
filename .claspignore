@@ -2,3 +2,4 @@
 # Paths here are relative to rootDir, not the repo root.
 # Push everything that lands in dist/ after the build.
 node_modules/
+sidebar-bundle.js

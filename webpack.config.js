@@ -48,6 +48,17 @@ class InlineChunkHtmlPlugin {
         assets.headTags = assets.headTags.map(tagFunction);
         assets.bodyTags = assets.bodyTags.map(tagFunction);
       });
+
+      // Delete inlined assets so webpack doesn't emit them as separate files.
+      // Without this, sidebar-bundle.js lands in dist/ and GAS executes it
+      // server-side, where `document` is not defined.
+      hooks.afterEmit.tap('InlineChunkHtmlPlugin', () => {
+        for (const assetName of Object.keys(compilation.assets)) {
+          if (this.tests.some(test => assetName.match(test))) {
+            delete compilation.assets[assetName];
+          }
+        }
+      });
     });
   }
 }
