@@ -277,7 +277,11 @@ export function buildScoresSheet(
   sheet.setFrozenColumns(1);
   sheet.setFrozenRows(0);
 
-  sheet.autoResizeColumns(1, TOTAL_COLS);
+  // Auto-resize only the narrow stat columns; leave name columns at default width
+  sheet.autoResizeColumns(WINS_COL, TOTAL_COLS - WINS_COL + 1);
+
+  // Label column at 1.5× default (100px) to comfortably fit most names
+  sheet.setColumnWidth(LABEL_COL, 150);
 
   return assignments;
 }
