@@ -1,0 +1,40 @@
+name: Deploy to Sheet
+
+on:
+  workflow_dispatch:
+    inputs:
+      script_id:
+        description: 'Apps Script ID of the target sheet'
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    name: Deploy to target sheet
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Write clasp credentials
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json
+
+      - name: Override script ID
+        run: |
+          node -e "
+            const fs = require('fs');
+            const cfg = JSON.parse(fs.readFileSync('.clasp.json', 'utf8'));
+            cfg.scriptId = '${{ inputs.script_id }}';
+            fs.writeFileSync('.clasp.json', JSON.stringify(cfg, null, 2));
+          "
+
+      - run: npm run push
