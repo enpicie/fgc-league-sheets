@@ -43,24 +43,49 @@ export function distributeGroups(
     }
   }
 
-  // Pre-pass: fill promotion — pull from tier below to satisfy minimums
+  // Pre-pass: fill promotion — pull from tiers below to satisfy minimums,
+  // and absorb stragglers that cannot form a valid group on their own.
   for (let i = 0; i < tiers.length - 1; i++) {
     const tierName = tiers[i].name;
-    const below = tiers[i + 1].name;
     const tierPlayers = playersByTier.get(tierName)!;
-    const belowPlayers = playersByTier.get(below)!;
     const desired = tiers[i].desiredGroups;
 
     if (desired !== undefined) {
       const needed = desired * groupSize.min;
-      while (tierPlayers.length < needed && belowPlayers.length > 0) {
-        // Pull the top-ranked player from the tier below
-        belowPlayers.sort((a, b) => a.groupRank - b.groupRank || a.group - b.group);
-        const promoted = belowPlayers.shift()!;
-        tierPlayers.push(promoted);
-        globalWarnings.push(
-          `Fill promotion: "${promoted.name}" moved from ${below} to ${tierName} to satisfy minimum group size.`
-        );
+
+      // Phase A: fill to minimum, pulling from any tier below in order
+      for (let j = i + 1; j < tiers.length && tierPlayers.length < needed; j++) {
+        const belowName = tiers[j].name;
+        const belowPlayers = playersByTier.get(belowName)!;
+        while (tierPlayers.length < needed && belowPlayers.length > 0) {
+          belowPlayers.sort((a, b) => a.groupRank - b.groupRank || a.group - b.group);
+          const promoted = belowPlayers.shift()!;
+          tierPlayers.push(promoted);
+          globalWarnings.push(
+            `Fill promotion: "${promoted.name}" moved from ${belowName} to ${tierName} to satisfy minimum group size.`
+          );
+        }
+      }
+
+      // Phase B: absorb stragglers — if all remaining players across every tier
+      // below this one total fewer than a single valid group, pull them up.
+      const allRemainingBelow = tiers
+        .slice(i + 1)
+        .reduce((acc, t) => acc + playersByTier.get(t.name)!.length, 0);
+
+      if (allRemainingBelow > 0 && allRemainingBelow < groupSize.min) {
+        for (let j = i + 1; j < tiers.length; j++) {
+          const belowName = tiers[j].name;
+          const belowPlayers = playersByTier.get(belowName)!;
+          while (belowPlayers.length > 0) {
+            belowPlayers.sort((a, b) => a.groupRank - b.groupRank || a.group - b.group);
+            const promoted = belowPlayers.shift()!;
+            tierPlayers.push(promoted);
+            globalWarnings.push(
+              `Fill promotion: "${promoted.name}" moved from ${belowName} to ${tierName} — too few players remaining to form a separate group.`
+            );
+          }
+        }
       }
     }
   }
@@ -72,6 +97,10 @@ export function distributeGroups(
   for (const tierCfg of tiers) {
     const tierPlayers = playersByTier.get(tierCfg.name)!;
     const count = tierPlayers.length;
+
+    // Skip empty tiers — no groups to create, don't affect monotonicity
+    if (count === 0) continue;
+
     const warnings: string[] = [];
 
     let groupCount: number;
