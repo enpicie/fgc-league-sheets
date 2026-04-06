@@ -37,7 +37,7 @@ export interface Phase2AResult {
   warnings: string[];
   promotions: Array<{ player: PlayerRef; fromTier: string; toTier: string }>;
   demotions: Array<{ player: PlayerRef; fromTier: string; toTier: string }>;
-  dnfPlayers: PlayerRef[];
+  dnfPlayers: Array<{ player: PlayerRef; toTier: string }>;
   preview: boolean;
 }
 

@@ -128,7 +128,7 @@ export function runPhase2A(
     // Snapshot Participants before any writes so the operator can rollback
     backupParticipants();
 
-    const statusUpdates: Array<{ rowIndex: number; status: 'ACTIVE' | 'DNF'; tier?: string }> = [];
+    const statusUpdates: Array<{ rowIndex: number; status: 'ACTIVE' | 'DNF'; tier?: string; group?: number; groupRank?: number }> = [];
 
     for (const { player, toTier } of dnfPlayers) {
       statusUpdates.push({ rowIndex: player.rowIndex, status: 'DNF', tier: toTier, group: 0, groupRank: 0 });
