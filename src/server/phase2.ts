@@ -41,7 +41,7 @@ export function runPhase2A(
   const scoreMap = readScoreMatrix(scoresSheet.getName());
   const h2h = readHeadToHeadMap(scoresSheet.getName());
 
-  // Players who were already DNF sat out this rotation and return to ACTIVE.
+  // Players who were already DNF sat out this rotation and are moved to INACTIVE.
   // Only ACTIVE players are checked for incomplete scores.
   const returningFromDnf = allPlayers.filter(p => p.status === 'DNF');
   const activePlayers = allPlayers.filter(p => p.status === 'ACTIVE');
@@ -54,7 +54,7 @@ export function runPhase2A(
 
   if (returningFromDnf.length > 0) {
     warnings.push(
-      `${returningFromDnf.length} player(s) returning from DNF sit-out and will be restored to ACTIVE: ` +
+      `${returningFromDnf.length} player(s) from previous DNF sit-out will be moved to INACTIVE: ` +
         returningFromDnf.map(p => p.name).join(', ')
     );
   }
@@ -127,10 +127,10 @@ export function runPhase2A(
     // Snapshot Participants before any writes so the operator can rollback
     backupParticipants();
 
-    const statusUpdates: Array<{ rowIndex: number; status: 'ACTIVE' | 'DNF'; tier?: string }> = [];
+    const statusUpdates: Array<{ rowIndex: number; status: 'ACTIVE' | 'DNF' | 'INACTIVE'; tier?: string }> = [];
 
     for (const p of returningFromDnf) {
-      statusUpdates.push({ rowIndex: p.rowIndex, status: 'ACTIVE' });
+      statusUpdates.push({ rowIndex: p.rowIndex, status: 'INACTIVE' });
     }
     for (const p of dnfPlayers) {
       statusUpdates.push({ rowIndex: p.rowIndex, status: 'DNF' });
