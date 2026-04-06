@@ -68,13 +68,19 @@ export function writePlayerAssignments(
 }
 
 export function writePlayerStatuses(
-  updates: Array<{ rowIndex: number; status: PlayerStatus; tier?: string }>
+  updates: Array<{ rowIndex: number; status: PlayerStatus; tier?: string; group?: number; groupRank?: number }>
 ): void {
   const sheet = getParticipantsSheet();
   for (const u of updates) {
     sheet.getRange(u.rowIndex, COL.STATUS).setValue(u.status);
     if (u.tier !== undefined) {
       sheet.getRange(u.rowIndex, COL.TIER).setValue(u.tier);
+    }
+    if (u.group !== undefined) {
+      sheet.getRange(u.rowIndex, COL.GROUP).setValue(u.group);
+    }
+    if (u.groupRank !== undefined) {
+      sheet.getRange(u.rowIndex, COL.GROUP_RANK).setValue(u.groupRank);
     }
   }
 }

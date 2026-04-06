@@ -45,10 +45,11 @@ global.previewEndCycle = function (
   promoteCount: number,
   demoteCount: number,
   promoteOverrides: Record<string, number> = {},
-  demoteOverrides: Record<string, number> = {}
+  demoteOverrides: Record<string, number> = {},
+  matchesPerSet = 1
 ): Phase2AResult {
   try {
-    return runPhase2A(tierOrder, promoteCount, demoteCount, false, promoteOverrides, demoteOverrides);
+    return runPhase2A(tierOrder, promoteCount, demoteCount, false, promoteOverrides, demoteOverrides, matchesPerSet);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     return { success: false, warnings: [msg], promotions: [], demotions: [], dnfPlayers: [], preview: true };
@@ -60,10 +61,11 @@ global.commitEndCycle = function (
   promoteCount: number,
   demoteCount: number,
   promoteOverrides: Record<string, number> = {},
-  demoteOverrides: Record<string, number> = {}
+  demoteOverrides: Record<string, number> = {},
+  matchesPerSet = 1
 ): Phase2AResult {
   try {
-    return runPhase2A(tierOrder, promoteCount, demoteCount, true, promoteOverrides, demoteOverrides);
+    return runPhase2A(tierOrder, promoteCount, demoteCount, true, promoteOverrides, demoteOverrides, matchesPerSet);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     return { success: false, warnings: [msg], promotions: [], demotions: [], dnfPlayers: [], preview: false };

@@ -21,7 +21,8 @@ export function runPhase2A(
   demoteCount = 1,
   commit = false,
   promoteOverrides: Record<string, number> = {},
-  demoteOverrides: Record<string, number> = {}
+  demoteOverrides: Record<string, number> = {},
+  matchesPerSet = 1
 ): Phase2AResult {
   const warnings: string[] = [];
 
@@ -37,32 +38,31 @@ export function runPhase2A(
     };
   }
 
-  const allPlayers = readAllPlayers().filter(p => p.status === 'ACTIVE' || p.status === 'DNF');
-  const scoreMap = readScoreMatrix(scoresSheet.getName());
+  const allPlayers = readAllPlayers().filter(p => p.status === 'ACTIVE');
+  const scoreMap = readScoreMatrix(scoresSheet.getName(), matchesPerSet);
   const h2h = readHeadToHeadMap(scoresSheet.getName());
 
-  // Players who were already DNF sat out this rotation and are moved to INACTIVE.
-  // Only ACTIVE players are checked for incomplete scores.
-  const returningFromDnf = allPlayers.filter(p => p.status === 'DNF');
-  const activePlayers = allPlayers.filter(p => p.status === 'ACTIVE');
-
   // Flag DNF players — ACTIVE players with incomplete rows in the score matrix
-  const dnfPlayers = activePlayers.filter(p => {
+  const incompletePlayers = allPlayers.filter(p => {
     const score = scoreMap.get(p.name);
     return score?.incomplete ?? false;
   });
 
-  if (returningFromDnf.length > 0) {
-    warnings.push(
-      `${returningFromDnf.length} player(s) from previous DNF sit-out will be moved to INACTIVE: ` +
-        returningFromDnf.map(p => p.name).join(', ')
-    );
-  }
+  // Pair each DNF player with their demotion target (tier below, or same if already at bottom)
+  const dnfPlayers = incompletePlayers.map(p => {
+    const tierIdx = tierOrder.indexOf(p.tier);
+    const toTier = tierIdx >= 0 && tierIdx < tierOrder.length - 1
+      ? tierOrder[tierIdx + 1]
+      : p.tier;
+    return { player: p, toTier };
+  });
 
   if (dnfPlayers.length > 0) {
     warnings.push(
       `${dnfPlayers.length} player(s) have incomplete match results and will be marked DNF: ` +
-        dnfPlayers.map(p => p.name).join(', ')
+        dnfPlayers.map(({ player, toTier }) =>
+          toTier !== player.tier ? `${player.name} (${player.tier} → ${toTier})` : player.name
+        ).join(', ')
     );
   }
 
@@ -70,8 +70,9 @@ export function runPhase2A(
   type GroupKey = string; // "Tier:GroupNumber"
   const groups = new Map<GroupKey, typeof allPlayers[0][]>();
 
-  for (const p of activePlayers) {
-    if (dnfPlayers.includes(p)) continue;
+  const dnfSet = new Set(dnfPlayers.map(d => d.player));
+  for (const p of allPlayers) {
+    if (dnfSet.has(p)) continue;
     const key = `${p.tier}:${p.group}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(p);
@@ -127,13 +128,10 @@ export function runPhase2A(
     // Snapshot Participants before any writes so the operator can rollback
     backupParticipants();
 
-    const statusUpdates: Array<{ rowIndex: number; status: 'ACTIVE' | 'DNF' | 'INACTIVE'; tier?: string }> = [];
+    const statusUpdates: Array<{ rowIndex: number; status: 'ACTIVE' | 'DNF'; tier?: string }> = [];
 
-    for (const p of returningFromDnf) {
-      statusUpdates.push({ rowIndex: p.rowIndex, status: 'INACTIVE' });
-    }
-    for (const p of dnfPlayers) {
-      statusUpdates.push({ rowIndex: p.rowIndex, status: 'DNF' });
+    for (const { player, toTier } of dnfPlayers) {
+      statusUpdates.push({ rowIndex: player.rowIndex, status: 'DNF', tier: toTier, group: 0, groupRank: 0 });
     }
     for (const { player, toTier } of promotions) {
       statusUpdates.push({ rowIndex: player.rowIndex, status: 'ACTIVE', tier: toTier });
