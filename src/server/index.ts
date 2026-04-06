@@ -43,10 +43,12 @@ global.startCycle = function (config: LeagueConfig): Phase1Result {
 global.previewEndCycle = function (
   tierOrder: string[],
   promoteCount: number,
-  demoteCount: number
+  demoteCount: number,
+  promoteOverrides: Record<string, number> = {},
+  demoteOverrides: Record<string, number> = {}
 ): Phase2AResult {
   try {
-    return runPhase2A(tierOrder, promoteCount, demoteCount, false);
+    return runPhase2A(tierOrder, promoteCount, demoteCount, false, promoteOverrides, demoteOverrides);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     return { success: false, warnings: [msg], promotions: [], demotions: [], dnfPlayers: [], preview: true };
@@ -56,10 +58,12 @@ global.previewEndCycle = function (
 global.commitEndCycle = function (
   tierOrder: string[],
   promoteCount: number,
-  demoteCount: number
+  demoteCount: number,
+  promoteOverrides: Record<string, number> = {},
+  demoteOverrides: Record<string, number> = {}
 ): Phase2AResult {
   try {
-    return runPhase2A(tierOrder, promoteCount, demoteCount, true);
+    return runPhase2A(tierOrder, promoteCount, demoteCount, true, promoteOverrides, demoteOverrides);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     return { success: false, warnings: [msg], promotions: [], demotions: [], dnfPlayers: [], preview: false };

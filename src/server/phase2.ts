@@ -19,7 +19,9 @@ export function runPhase2A(
   tierOrder: string[],
   promoteCount = 1,
   demoteCount = 1,
-  commit = false
+  commit = false,
+  promoteOverrides: Record<string, number> = {},
+  demoteOverrides: Record<string, number> = {}
 ): Phase2AResult {
   const warnings: string[] = [];
 
@@ -99,16 +101,19 @@ export function runPhase2A(
       return a.name.localeCompare(b.name);
     });
 
+    const effectivePromote = promoteOverrides[tierName] ?? promoteCount;
+    const effectiveDemote = demoteOverrides[tierName] ?? demoteCount;
+
     // Top N promote
     if (aboveTier !== null) {
-      for (let i = 0; i < Math.min(promoteCount, ranked.length); i++) {
+      for (let i = 0; i < Math.min(effectivePromote, ranked.length); i++) {
         promotions.push({ player: ranked[i], fromTier: tierName, toTier: aboveTier });
       }
     }
 
     // Bottom N demote
     if (belowTier !== null) {
-      const start = Math.max(ranked.length - demoteCount, promoteCount);
+      const start = Math.max(ranked.length - effectiveDemote, effectivePromote);
       for (let i = start; i < ranked.length; i++) {
         // Don't demote someone who is also being promoted (edge case: tiny groups)
         if (!promotions.find(x => x.player === ranked[i])) {

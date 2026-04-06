@@ -12,6 +12,8 @@ export default function Phase2Panel({ summary, onComplete }: Props) {
 
   const [promoteCount, setPromoteCount] = useState(1);
   const [demoteCount, setDemoteCount] = useState(1);
+  const [promoteOverrides, setPromoteOverrides] = useState<Record<string, string>>({});
+  const [demoteOverrides, setDemoteOverrides] = useState<Record<string, string>>({});
 
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [loadingCommit, setLoadingCommit] = useState(false);
@@ -36,6 +38,15 @@ export default function Phase2Panel({ summary, onComplete }: Props) {
     checkBackup();
   }, []);
 
+  function buildOverrides(raw: Record<string, string>): Record<string, number> {
+    const result: Record<string, number> = {};
+    for (const [tier, val] of Object.entries(raw)) {
+      const n = parseInt(val, 10);
+      if (!isNaN(n) && val.trim() !== '') result[tier] = n;
+    }
+    return result;
+  }
+
   function handlePreview() {
     setLoadingPreview(true);
     setPreviewResult(null);
@@ -56,7 +67,7 @@ export default function Phase2Panel({ summary, onComplete }: Props) {
         });
         setLoadingPreview(false);
       })
-      .previewEndCycle(tiers, promoteCount, demoteCount);
+      .previewEndCycle(tiers, promoteCount, demoteCount, buildOverrides(promoteOverrides), buildOverrides(demoteOverrides));
   }
 
   function handleCommit() {
@@ -84,7 +95,7 @@ export default function Phase2Panel({ summary, onComplete }: Props) {
         });
         setLoadingCommit(false);
       })
-      .commitEndCycle(tiers, promoteCount, demoteCount);
+      .commitEndCycle(tiers, promoteCount, demoteCount, buildOverrides(promoteOverrides), buildOverrides(demoteOverrides));
   }
 
   function handleActivate() {
@@ -149,6 +160,60 @@ export default function Phase2Panel({ summary, onComplete }: Props) {
             onChange={e => setDemoteCount(parseInt(e.target.value, 10))}
           />
         </div>
+
+        {tiers.length > 0 && (
+          <div style={{ marginTop: 8 }}>
+            <p className="hint" style={{ marginBottom: 4 }}>
+              Per-tier overrides — leave blank to use the defaults above.
+            </p>
+            <table className="tier-table">
+              <thead>
+                <tr>
+                  <th>Tier</th>
+                  <th>Promote N</th>
+                  <th>Demote N</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tiers.map((tier, idx) => (
+                  <tr key={tier}>
+                    <td style={{ fontWeight: 600 }}>{tier}</td>
+                    <td>
+                      {idx > 0 ? (
+                        <input
+                          type="number"
+                          min={0}
+                          placeholder={String(promoteCount)}
+                          value={promoteOverrides[tier] ?? ''}
+                          onChange={e =>
+                            setPromoteOverrides(prev => ({ ...prev, [tier]: e.target.value }))
+                          }
+                        />
+                      ) : (
+                        <span style={{ fontSize: 11, color: '#9aa0a6' }}>top tier</span>
+                      )}
+                    </td>
+                    <td>
+                      {idx < tiers.length - 1 ? (
+                        <input
+                          type="number"
+                          min={0}
+                          placeholder={String(demoteCount)}
+                          value={demoteOverrides[tier] ?? ''}
+                          onChange={e =>
+                            setDemoteOverrides(prev => ({ ...prev, [tier]: e.target.value }))
+                          }
+                        />
+                      ) : (
+                        <span style={{ fontSize: 11, color: '#9aa0a6' }}>bottom tier</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {tiers.length === 0 && (
           <p style={{ fontSize: 12, color: '#5f6368', marginBottom: 8 }}>
