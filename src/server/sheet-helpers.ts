@@ -85,6 +85,18 @@ export function writeCurrentScoresSheetName(sheetName: string): void {
   sheet.getRange(1, COL.ROTATION_VALUE).setValue(sheetName);
 }
 
+export function writeTierOrder(tierNames: string[]): void {
+  const sheet = getParticipantsSheet();
+  sheet.getRange(1, COL.TIER_ORDER).setValue(tierNames.join(','));
+}
+
+export function readTierOrder(): string[] {
+  const sheet = getParticipantsSheet();
+  const raw = String(sheet.getRange(1, COL.TIER_ORDER).getValue() ?? '').trim();
+  if (!raw) return [];
+  return raw.split(',').map(s => s.trim()).filter(Boolean);
+}
+
 
 /** Build the Scores sheet name from optional label and rotation number. */
 export function buildScoresSheetName(
@@ -173,9 +185,19 @@ export function getRotationSummary(): RotationSummary {
   const players = readAllPlayers();
   const activeScores = findActiveScoresSheet();
 
-  const tiers = [...new Set(
+  const tierOrder = readTierOrder();
+  const activeTierSet = new Set(
     players.filter(p => p.status === 'ACTIVE').map(p => p.tier).filter(Boolean)
-  )].sort();
+  );
+  // Sort by configured order; tiers not in the stored order fall to the end.
+  const tiers = [...activeTierSet].sort((a, b) => {
+    const ai = tierOrder.indexOf(a);
+    const bi = tierOrder.indexOf(b);
+    if (ai === -1 && bi === -1) return a.localeCompare(b);
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
 
   return {
     scoresSheetName: activeScores?.getName() ?? null,

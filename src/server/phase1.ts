@@ -3,6 +3,7 @@ import {
   readAllPlayers,
   writePlayerAssignments,
   writeCurrentScoresSheetName,
+  writeTierOrder,
   findActiveScoresSheet,
   archiveScoresSheet,
   buildScoresSheetName,
@@ -65,8 +66,9 @@ export function runPhase1(config: LeagueConfig): Phase1Result {
     }))
   );
 
-  // Step 5: write scores sheet name to K1 so the bot and operators can identify the current rotation
+  // Step 5: write scores sheet name and tier order to row 1 so Phase 2 knows the configured order
   writeCurrentScoresSheetName(scoresSheetName);
+  writeTierOrder(config.tiers.map(t => t.name));
 
   return { success: true, warnings, scoresSheetName };
 }

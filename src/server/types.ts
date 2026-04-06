@@ -11,6 +11,7 @@ export const COL = {
   LOSSES_COL: 9,
   ROTATION_LABEL: 10, // J1: "Current Rotation:"
   ROTATION_VALUE: 11, // K1: integer rotation number
+  TIER_ORDER: 12,     // L1: comma-separated tier names in configured order, e.g. "S,A,B,C,D"
 } as const;
 
 export type PlayerStatus = 'ACTIVE' | 'QUEUED' | 'DNF' | 'INACTIVE';
