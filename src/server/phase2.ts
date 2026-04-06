@@ -2,6 +2,7 @@ import { Phase2AResult, Phase2BResult } from './types';
 import {
   readAllPlayers,
   writePlayerStatuses,
+  writeGroupRanks,
   findActiveScoresSheet,
   backupParticipants,
 } from './sheet-helpers';
@@ -80,6 +81,7 @@ export function runPhase2A(
 
   const promotions: Phase2AResult['promotions'] = [];
   const demotions: Phase2AResult['demotions'] = [];
+  const rankUpdates: Array<{ rowIndex: number; groupRank: number }> = [];
 
   for (const [key, groupPlayers] of groups) {
     const [tierName] = key.split(':');
@@ -101,6 +103,11 @@ export function runPhase2A(
       if (aOverB !== bOverA) return bOverA - aOverB;
       return a.name.localeCompare(b.name);
     });
+
+    // Record finish rank for every player in this group (1 = best)
+    for (let i = 0; i < ranked.length; i++) {
+      rankUpdates.push({ rowIndex: ranked[i].rowIndex, groupRank: i + 1 });
+    }
 
     const effectivePromote = promoteOverrides[tierName] ?? promoteCount;
     const effectiveDemote = demoteOverrides[tierName] ?? demoteCount;
@@ -141,6 +148,7 @@ export function runPhase2A(
     }
 
     writePlayerStatuses(statusUpdates);
+    writeGroupRanks(rankUpdates);
   }
 
   return {

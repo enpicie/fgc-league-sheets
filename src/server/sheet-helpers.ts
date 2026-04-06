@@ -53,17 +53,23 @@ export function writePlayerAssignments(
     rowIndex: number;
     tier: string;
     group: number;
-    groupRank: number;
     winsRow: number;
     lossesCol: number;
   }>
 ): void {
   const sheet = getParticipantsSheet();
   for (const p of players) {
-    // Batch: Tier/Group/GroupRank are contiguous cols 4-6
-    sheet.getRange(p.rowIndex, COL.TIER, 1, 3).setValues([[p.tier, p.group, p.groupRank]]);
+    // Batch: Tier/Group are contiguous cols 4-5 (groupRank is left untouched — set by Phase 2A)
+    sheet.getRange(p.rowIndex, COL.TIER, 1, 2).setValues([[p.tier, p.group]]);
     // Batch: WinsRow/LossesCol are contiguous cols 8-9
     sheet.getRange(p.rowIndex, COL.WINS_ROW, 1, 2).setValues([[p.winsRow, colIndexToLetter(p.lossesCol)]]);
+  }
+}
+
+export function writeGroupRanks(updates: Array<{ rowIndex: number; groupRank: number }>): void {
+  const sheet = getParticipantsSheet();
+  for (const u of updates) {
+    sheet.getRange(u.rowIndex, COL.GROUP_RANK).setValue(u.groupRank);
   }
 }
 

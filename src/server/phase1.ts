@@ -60,7 +60,6 @@ export function runPhase1(config: LeagueConfig): Phase1Result {
       rowIndex: a.rowIndex,
       tier: a.tier,
       group: a.groupNumber,
-      groupRank: a.player.groupRank,
       winsRow: a.winsRow,
       lossesCol: a.lossesCol,
     }))
