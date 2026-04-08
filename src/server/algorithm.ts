@@ -58,7 +58,14 @@ export function distributeGroups(
         const belowName = tiers[j].name;
         const belowPlayers = playersByTier.get(belowName)!;
         while (tierPlayers.length < needed && belowPlayers.length > 0) {
-          belowPlayers.sort((a, b) => a.groupRank - b.groupRank || a.group - b.group);
+          // Ranked players (group > 0 && groupRank > 0) promoted first by best rank;
+          // players without a group/rank are lowest priority.
+          belowPlayers.sort((a, b) => {
+            const aRanked = a.group > 0 && a.groupRank > 0;
+            const bRanked = b.group > 0 && b.groupRank > 0;
+            if (aRanked !== bRanked) return aRanked ? -1 : 1;
+            return a.groupRank - b.groupRank;
+          });
           const promoted = belowPlayers.shift()!;
           tierPlayers.push(promoted);
           globalWarnings.push(
@@ -78,7 +85,12 @@ export function distributeGroups(
           const belowName = tiers[j].name;
           const belowPlayers = playersByTier.get(belowName)!;
           while (belowPlayers.length > 0) {
-            belowPlayers.sort((a, b) => a.groupRank - b.groupRank || a.group - b.group);
+            belowPlayers.sort((a, b) => {
+              const aRanked = a.group > 0 && a.groupRank > 0;
+              const bRanked = b.group > 0 && b.groupRank > 0;
+              if (aRanked !== bRanked) return aRanked ? -1 : 1;
+              return a.groupRank - b.groupRank;
+            });
             const promoted = belowPlayers.shift()!;
             tierPlayers.push(promoted);
             globalWarnings.push(
