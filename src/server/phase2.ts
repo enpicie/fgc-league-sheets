@@ -131,6 +131,10 @@ export function runPhase2A(
     }
   }
 
+  // Always write ranks — they are objective results of the score matrix and are needed
+  // by Phase 1 fill-promotion sorting regardless of whether tier movements are committed.
+  writeGroupRanks(rankUpdates);
+
   if (commit) {
     // Snapshot Participants before any writes so the operator can rollback
     backupParticipants();
@@ -148,7 +152,6 @@ export function runPhase2A(
     }
 
     writePlayerStatuses(statusUpdates);
-    writeGroupRanks(rankUpdates);
   }
 
   return {
