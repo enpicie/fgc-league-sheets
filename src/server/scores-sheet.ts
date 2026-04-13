@@ -102,6 +102,9 @@ export function buildScoresSheet(
   let sheetRow = 1; // current 1-based sheet row
 
   for (const group of groups) {
+    // Sort players alphabetically so win rows and loss columns appear in a consistent order.
+    group.players.sort((a, b) => a.name.localeCompare(b.name));
+
     const N = group.players.length;
     if (N === 0) continue;
 
