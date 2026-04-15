@@ -22,8 +22,7 @@ export function runPhase2A(
   demoteCount = 1,
   commit = false,
   promoteOverrides: Record<string, number> = {},
-  demoteOverrides: Record<string, number> = {},
-  matchesPerSet = 1
+  demoteOverrides: Record<string, number> = {}
 ): Phase2AResult {
   const warnings: string[] = [];
 
@@ -40,7 +39,7 @@ export function runPhase2A(
   }
 
   const allPlayers = readAllPlayers().filter(p => p.status === 'ACTIVE');
-  const scoreMap = readScoreMatrix(scoresSheet.getName(), matchesPerSet);
+  const scoreMap = readScoreMatrix(scoresSheet.getName());
   const h2h = readHeadToHeadMap(scoresSheet.getName());
 
   // Flag DNF players — ACTIVE players with incomplete rows in the score matrix

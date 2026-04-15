@@ -298,7 +298,7 @@ export function buildScoresSheet(
  * Uses the tier-header row (one row above the group header) to find the
  * "Wins" column, then reads Wins + Played from the formula-computed values.
  */
-export function readScoreMatrix(scoresSheetName: string, matchesPerSet = 1): Map<
+export function readScoreMatrix(scoresSheetName: string): Map<
   string,
   { wins: number; losses: number; total: number; winPct: number; incomplete: boolean }
 > {
@@ -349,8 +349,8 @@ export function readScoreMatrix(scoresSheetName: string, matchesPerSet = 1): Map
       const wins = Number(playerRow[winsIdx]) || 0;
       const played = Number(playerRow[playedIdx]) || 0;
       const winPct = played > 0 ? wins / played : 0;
-      // Incomplete = hasn't played all expected games yet (N-1 opponents × matchesPerSet games each)
-      const incomplete = played < (N - 1) * matchesPerSet;
+      // Incomplete = played fewer than half of their opponents (DNF threshold)
+      const incomplete = played * 2 < N - 1;
 
       results.set(playerName, {
         wins,

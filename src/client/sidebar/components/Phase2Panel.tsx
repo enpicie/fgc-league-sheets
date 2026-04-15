@@ -12,7 +12,6 @@ export default function Phase2Panel({ summary, onComplete }: Props) {
 
   const [promoteCount, setPromoteCount] = useState(1);
   const [demoteCount, setDemoteCount] = useState(1);
-  const [matchesPerSet, setMatchesPerSet] = useState(1);
   const [promoteOverrides, setPromoteOverrides] = useState<Record<string, string>>({});
   const [demoteOverrides, setDemoteOverrides] = useState<Record<string, string>>({});
 
@@ -68,7 +67,7 @@ export default function Phase2Panel({ summary, onComplete }: Props) {
         });
         setLoadingPreview(false);
       })
-      .previewEndCycle(tiers, promoteCount, demoteCount, buildOverrides(promoteOverrides), buildOverrides(demoteOverrides), matchesPerSet);
+      .previewEndCycle(tiers, promoteCount, demoteCount, buildOverrides(promoteOverrides), buildOverrides(demoteOverrides));
   }
 
   function handleCommit() {
@@ -96,7 +95,7 @@ export default function Phase2Panel({ summary, onComplete }: Props) {
         });
         setLoadingCommit(false);
       })
-      .commitEndCycle(tiers, promoteCount, demoteCount, buildOverrides(promoteOverrides), buildOverrides(demoteOverrides), matchesPerSet);
+      .commitEndCycle(tiers, promoteCount, demoteCount, buildOverrides(promoteOverrides), buildOverrides(demoteOverrides));
   }
 
   function handleActivate() {
@@ -143,15 +142,6 @@ export default function Phase2Panel({ summary, onComplete }: Props) {
       <div className="card">
         <h2>Step A — Calculate Promotions &amp; Demotions</h2>
 
-        <div className="form-row">
-          <label>Matches per set</label>
-          <input
-            type="number"
-            value={matchesPerSet}
-            min={1}
-            onChange={e => setMatchesPerSet(parseInt(e.target.value, 10))}
-          />
-        </div>
         <div className="form-row">
           <label>Promote top N per group</label>
           <input

@@ -8,8 +8,8 @@ declare namespace google {
       withFailureHandler(handler: (error: Error) => void): Runner;
       getRotationSummary(): void;
       startCycle(config: unknown): void;
-      previewEndCycle(tierOrder: string[], promoteCount: number, demoteCount: number, promoteOverrides: Record<string, number>, demoteOverrides: Record<string, number>, matchesPerSet: number): void;
-      commitEndCycle(tierOrder: string[], promoteCount: number, demoteCount: number, promoteOverrides: Record<string, number>, demoteOverrides: Record<string, number>, matchesPerSet: number): void;
+      previewEndCycle(tierOrder: string[], promoteCount: number, demoteCount: number, promoteOverrides: Record<string, number>, demoteOverrides: Record<string, number>): void;
+      commitEndCycle(tierOrder: string[], promoteCount: number, demoteCount: number, promoteOverrides: Record<string, number>, demoteOverrides: Record<string, number>): void;
       activateQueuedPlayers(): void;
       hasRollbackData(): void;
       rollbackEndCycle(): void;
