@@ -40,6 +40,19 @@ export function runPhase1(config: LeagueConfig): Phase1Result {
     );
   }
 
+  const untieredActive = players.filter(p => p.status === 'ACTIVE' && !p.tier);
+  if (untieredActive.length > 0) {
+    return {
+      success: false,
+      warnings: [
+        `${untieredActive.length} active player(s) have no tier assigned: ` +
+          untieredActive.map(p => p.name).join(', ') +
+          '. Assign a tier to every active player before starting the cycle.',
+      ],
+      scoresSheetName: '',
+    };
+  }
+
   const result = distributeGroups(players, config.tiers, config.groupSize);
   warnings.push(...result.warnings);
   for (const tier of result.tiers) {

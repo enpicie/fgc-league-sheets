@@ -299,7 +299,7 @@ export function buildScoresSheet(
  * "Wins" column, then reads Wins + Played from the formula-computed values.
  */
 export function readScoreMatrix(scoresSheetName: string): Map<
-  string,
+  number,
   { wins: number; losses: number; total: number; winPct: number; incomplete: boolean }
 > {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -312,7 +312,7 @@ export function readScoreMatrix(scoresSheetName: string): Map<
 
   const data = sheet.getRange(1, 1, lastRow, lastCol).getValues() as (string | number)[][];
   const results = new Map<
-    string,
+    number,
     { wins: number; losses: number; total: number; winPct: number; incomplete: boolean }
   >();
 
@@ -338,9 +338,10 @@ export function readScoreMatrix(scoresSheetName: string): Map<
     }
     if (N === 0) continue;
 
-    // Read each player row
+    // Read each player row. Key by 1-based sheet row (== winsRow in Participants),
+    // so lookup is robust against player name edits made after Phase 1 ran.
     for (let pi = 0; pi < N; pi++) {
-      const pr = r + 1 + pi;
+      const pr = r + 1 + pi; // 0-based index into data[]
       if (pr >= data.length) break;
       const playerRow = data[pr];
       const playerName = String(playerRow[0] ?? '').trim();
@@ -352,7 +353,8 @@ export function readScoreMatrix(scoresSheetName: string): Map<
       // Incomplete = played fewer than half of their opponents (DNF threshold)
       const incomplete = played * 2 < N - 1;
 
-      results.set(playerName, {
+      // pr + 1 is the 1-based sheet row, which equals winsRow stored in Participants
+      results.set(pr + 1, {
         wins,
         losses: played - wins,
         total: played,

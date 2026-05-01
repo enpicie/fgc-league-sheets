@@ -38,7 +38,9 @@ export function distributeGroups(
       playersByTier.get(p.tier)!.push(p);
     } else {
       globalWarnings.push(
-        `Player "${p.name}" has tier "${p.tier}" which is not in the tier config — skipped.`
+        p.tier
+          ? `Player "${p.name}" has tier "${p.tier}" which is not in the tier config — skipped.`
+          : `Player "${p.name}" has no tier assigned — skipped.`
       );
     }
   }

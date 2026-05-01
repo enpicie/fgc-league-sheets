@@ -44,7 +44,7 @@ export function runPhase2A(
 
   // Flag DNF players — ACTIVE players with incomplete rows in the score matrix
   const incompletePlayers = allPlayers.filter(p => {
-    const score = scoreMap.get(p.name);
+    const score = scoreMap.get(p.winsRow);
     return score?.incomplete ?? false;
   });
 
@@ -92,9 +92,11 @@ export function runPhase2A(
 
     // Sort by win percentage descending.
     // Ties broken by head-to-head record, then alphabetically.
+    // Use winsRow (the player's exact row in the scores sheet) to look up scores — this
+    // is robust against player name edits made in Participants after Phase 1 ran.
     const ranked = [...groupPlayers].sort((a, b) => {
-      const sa = scoreMap.get(a.name)?.winPct ?? 0;
-      const sb = scoreMap.get(b.name)?.winPct ?? 0;
+      const sa = scoreMap.get(a.winsRow)?.winPct ?? 0;
+      const sb = scoreMap.get(b.winsRow)?.winPct ?? 0;
       if (sb !== sa) return sb - sa;
       // Head-to-head: player with more wins over the other ranks higher
       const aOverB = h2h.get(a.name)?.get(b.name) ?? 0;
